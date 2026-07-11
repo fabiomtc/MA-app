@@ -593,7 +593,7 @@ function TaskMarker({
 }
 
 /* ---------- Campo de formulário (linha única, sem caixas) ---------- */
-function Field({ id, label, value, onChange, type = "text", inputMode, maxLength, placeholder }) {
+function Field({ id, label, value, onChange, type = "text", inputMode, maxLength, placeholder, mask }) {
   return (
     <div style={{ width: "100%", marginBottom: 22 }}>
       <label
@@ -617,6 +617,10 @@ function Field({ id, label, value, onChange, type = "text", inputMode, maxLength
         value={value}
         placeholder={placeholder}
         onChange={onChange}
+        autoComplete={mask ? "one-time-code" : "off"}
+        autoCorrect="off"
+        autoCapitalize="off"
+        spellCheck={false}
         className={`ma-input ma-fade-focus${value ? " ma-filled" : ""}`}
         style={{
           width: "100%",
@@ -629,7 +633,9 @@ function Field({ id, label, value, onChange, type = "text", inputMode, maxLength
           borderBottom: "1px solid rgba(0,0,0,0.15)",
           padding: "0 0 10px 0",
           outline: "none",
-          letterSpacing: type === "password" ? "0.3em" : "normal",
+          letterSpacing: mask ? "0.3em" : "normal",
+          WebkitTextSecurity: mask ? "disc" : "none",
+          textSecurity: mask ? "disc" : "none",
         }}
       />
       <div className="ma-input-underline" style={{ height: 1, background: "#000000" }} />
@@ -1188,7 +1194,8 @@ function MAApp() {
               <Field
                 id="ma-password"
                 label={t.passwordLabel}
-                type="password"
+                type="text"
+                mask
                 inputMode="numeric"
                 maxLength={6}
                 value={password}
@@ -1199,7 +1206,8 @@ function MAApp() {
                 <Field
                   id="ma-confirm-password"
                   label={t.confirmLabel}
-                  type="password"
+                  type="text"
+                  mask
                   inputMode="numeric"
                   maxLength={6}
                   value={confirmPassword}
@@ -2464,7 +2472,6 @@ root.render(<MAApp />);
     }
   }
 
-  // Varias fontes por biblioteca: se uma falhar ou demorar demais, tenta a proxima.
   var SOURCES = {
     React: [
       "https://cdn.jsdelivr.net/npm/react@18/umd/react.production.min.js",
