@@ -9,9 +9,9 @@
   html, body { margin: 0; padding: 0; background: #0a0a0a; }
   #root { min-height: 100vh; }
   #ma-boot-msg {
-    min-height: 100vh; display: flex; align-items: center; justify-content: center;
+    min-height: 100vh; display: flex; flex-direction: column; align-items: center; justify-content: center;
     color: rgba(255,255,255,0.55); font-family: -apple-system, Arial, sans-serif;
-    font-size: 14px; text-align: center; padding: 32px; line-height: 1.6;
+    font-size: 14px; text-align: center; padding: 32px; line-height: 1.6; gap: 10px;
   }
   #ma-error-box {
     display: none; min-height: 100vh; box-sizing: border-box;
@@ -21,52 +21,10 @@
 </style>
 </head>
 <body>
-<div id="root"><div id="ma-boot-msg">Carregando o MA...</div></div>
+<div id="root"><div id="ma-boot-msg"><span>Carregando o MA...</span></div></div>
 <div id="ma-error-box"></div>
 
-<script>
-  function maShowError(title, detail) {
-    var box = document.getElementById("ma-error-box");
-    var root = document.getElementById("root");
-    if (root) root.style.display = "none";
-    if (box) {
-      box.style.display = "block";
-      box.textContent = "MA nao conseguiu carregar" + String.fromCharCode(10,10) + title + String.fromCharCode(10,10) + (detail || "");
-    }
-  }
-  window.addEventListener("error", function (e) {
-    maShowError("Erro no navegador:", (e && e.message) || String(e));
-  });
-  window.addEventListener("unhandledrejection", function (e) {
-    maShowError("Erro de carregamento:", (e && e.reason) || String(e));
-  });
-  function maCdnError(who) {
-    maShowError("Nao consegui carregar: " + who, "Verifique sua internet ou desative VPN/bloqueador de anuncios e tente novamente.");
-  }
-</script>
-
-<script crossorigin src="https://cdn.jsdelivr.net/npm/react@18/umd/react.production.min.js" onerror="maCdnError(this.src)"></script>
-<script crossorigin src="https://cdn.jsdelivr.net/npm/react-dom@18/umd/react-dom.production.min.js" onerror="maCdnError(this.src)"></script>
-<script src="https://cdn.jsdelivr.net/npm/@babel/standalone/babel.min.js" onerror="maCdnError(this.src)"></script>
-
-<script>
-  window.addEventListener("load", function () {
-    setTimeout(function () {
-      if (!window.React || !window.ReactDOM || !window.Babel) {
-        maShowError(
-          "Uma das bibliotecas nao carregou a tempo.",
-          "React: " + (!!window.React) + " | ReactDOM: " + (!!window.ReactDOM) + " | Babel: " + (!!window.Babel) +
-          String.fromCharCode(10,10) +
-          "Isso costuma acontecer quando uma VPN, rede corporativa ou bloqueador de anuncios impede o carregamento de scripts externos (cdn.jsdelivr.net). Tente desativar a VPN/bloqueador, ou trocar de rede (ex: dados moveis), e recarregar a pagina."
-        );
-      }
-    }, 4000);
-  });
-</script>
-
-<script type="text/babel" data-presets="react">
-try {
-const { useState, useEffect, useRef } = React;
+<script type="text/plain" id="ma-source">const { useState, useEffect, useRef } = React;
 
 /* ============================================================
    DESIGN TOKENS — "MA" Quiet Luxury System
@@ -2491,9 +2449,103 @@ function MAApp() {
 
 const root = ReactDOM.createRoot(document.getElementById("root"));
 root.render(<MAApp />);
-} catch (err) {
-  maShowError("Erro ao rodar o aplicativo:", String(err && err.stack ? err.stack : err));
-}
+</script>
+
+<script>
+(function () {
+  function showError(title, detail) {
+    var box = document.getElementById("ma-error-box");
+    var root = document.getElementById("root");
+    if (root) root.style.display = "none";
+    if (box) {
+      box.style.display = "block";
+      box.textContent = "MA nao conseguiu carregar" + String.fromCharCode(10, 10) +
+        title + String.fromCharCode(10, 10) + (detail || "");
+    }
+  }
+
+  // Varias fontes por biblioteca: se uma falhar ou demorar demais, tenta a proxima.
+  var SOURCES = {
+    React: [
+      "https://cdn.jsdelivr.net/npm/react@18/umd/react.production.min.js",
+      "https://unpkg.com/react@18/umd/react.production.min.js",
+      "https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"
+    ],
+    ReactDOM: [
+      "https://cdn.jsdelivr.net/npm/react-dom@18/umd/react-dom.production.min.js",
+      "https://unpkg.com/react-dom@18/umd/react-dom.production.min.js",
+      "https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"
+    ],
+    Babel: [
+      "https://cdn.jsdelivr.net/npm/@babel/standalone/babel.min.js",
+      "https://unpkg.com/@babel/standalone/babel.min.js"
+    ]
+  };
+
+  function loadOnce(url, timeoutMs) {
+    return new Promise(function (resolve, reject) {
+      var s = document.createElement("script");
+      s.src = url;
+      s.crossOrigin = "anonymous";
+      var done = false;
+      var timer = setTimeout(function () {
+        if (!done) { done = true; reject(new Error("tempo esgotado: " + url)); }
+      }, timeoutMs);
+      s.onload = function () {
+        if (!done) { done = true; clearTimeout(timer); resolve(); }
+      };
+      s.onerror = function () {
+        if (!done) { done = true; clearTimeout(timer); reject(new Error("falhou: " + url)); }
+      };
+      document.body.appendChild(s);
+    });
+  }
+
+  function loadWithFallback(globalName, urls, attemptsLeft) {
+    if (window[globalName]) return Promise.resolve();
+    var chain = Promise.reject();
+    urls.forEach(function (url) {
+      chain = chain.catch(function () { return loadOnce(url, 7000); });
+    });
+    return chain.catch(function (err) {
+      if (attemptsLeft > 0) {
+        return new Promise(function (r) { setTimeout(r, 1200); }).then(function () {
+          return loadWithFallback(globalName, urls, attemptsLeft - 1);
+        });
+      }
+      throw err;
+    });
+  }
+
+  loadWithFallback("React", SOURCES.React, 1)
+    .then(function () { return loadWithFallback("ReactDOM", SOURCES.ReactDOM, 1); })
+    .then(function () { return loadWithFallback("Babel", SOURCES.Babel, 1); })
+    .then(function () {
+      if (!window.React || !window.ReactDOM || !window.Babel) {
+        throw new Error(
+          "React: " + (!!window.React) + " | ReactDOM: " + (!!window.ReactDOM) + " | Babel: " + (!!window.Babel)
+        );
+      }
+      var source = document.getElementById("ma-source").textContent;
+      var compiled = Babel.transform(source, { presets: ["react"] }).code;
+      var runner = document.createElement("script");
+      runner.text = compiled;
+      document.body.appendChild(runner);
+    })
+    .catch(function (err) {
+      showError(
+        "Nao consegui carregar as bibliotecas necessarias, mesmo tentando varias fontes.",
+        String((err && err.message) || err) + String.fromCharCode(10, 10) +
+        "Verifique sua internet, desative VPN/bloqueador de anuncios, ou tente em outra rede (ex: dados moveis)."
+      );
+    });
+
+  window.addEventListener("error", function (e) {
+    if (document.getElementById("ma-error-box").style.display !== "block") {
+      showError("Erro no navegador:", (e && e.message) || String(e));
+    }
+  });
+})();
 </script>
 </body>
 </html>
