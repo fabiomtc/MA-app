@@ -2527,7 +2527,7 @@ root.render(<MAApp />);
         );
       }
       var source = document.getElementById("ma-source").textContent;
-      var compiled = Babel.transform(source, { presets: ["react"] }).code;
+      var compiled = Babel.transform(source, { presets: [["react", { runtime: "classic" }]] }).code;
       var runner = document.createElement("script");
       runner.text = compiled;
       document.body.appendChild(runner);
