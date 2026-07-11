@@ -8,16 +8,64 @@
 <style>
   html, body { margin: 0; padding: 0; background: #0a0a0a; }
   #root { min-height: 100vh; }
+  #ma-boot-msg {
+    min-height: 100vh; display: flex; align-items: center; justify-content: center;
+    color: rgba(255,255,255,0.55); font-family: -apple-system, Arial, sans-serif;
+    font-size: 14px; text-align: center; padding: 32px; line-height: 1.6;
+  }
+  #ma-error-box {
+    display: none; min-height: 100vh; box-sizing: border-box;
+    color: #ffb4b4; background: #1a0000; font-family: -apple-system, Arial, sans-serif;
+    font-size: 13px; text-align: left; padding: 24px; line-height: 1.6; white-space: pre-wrap;
+  }
 </style>
 </head>
 <body>
-<div id="root"></div>
+<div id="root"><div id="ma-boot-msg">Carregando o MA...</div></div>
+<div id="ma-error-box"></div>
 
-<script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
-<script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
-<script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+<script>
+  function maShowError(title, detail) {
+    var box = document.getElementById("ma-error-box");
+    var root = document.getElementById("root");
+    if (root) root.style.display = "none";
+    if (box) {
+      box.style.display = "block";
+      box.textContent = "MA nao conseguiu carregar" + String.fromCharCode(10,10) + title + String.fromCharCode(10,10) + (detail || "");
+    }
+  }
+  window.addEventListener("error", function (e) {
+    maShowError("Erro no navegador:", (e && e.message) || String(e));
+  });
+  window.addEventListener("unhandledrejection", function (e) {
+    maShowError("Erro de carregamento:", (e && e.reason) || String(e));
+  });
+  function maCdnError(who) {
+    maShowError("Nao consegui carregar: " + who, "Verifique sua internet ou desative VPN/bloqueador de anuncios e tente novamente.");
+  }
+</script>
+
+<script crossorigin src="https://cdn.jsdelivr.net/npm/react@18/umd/react.production.min.js" onerror="maCdnError(this.src)"></script>
+<script crossorigin src="https://cdn.jsdelivr.net/npm/react-dom@18/umd/react-dom.production.min.js" onerror="maCdnError(this.src)"></script>
+<script src="https://cdn.jsdelivr.net/npm/@babel/standalone/babel.min.js" onerror="maCdnError(this.src)"></script>
+
+<script>
+  window.addEventListener("load", function () {
+    setTimeout(function () {
+      if (!window.React || !window.ReactDOM || !window.Babel) {
+        maShowError(
+          "Uma das bibliotecas nao carregou a tempo.",
+          "React: " + (!!window.React) + " | ReactDOM: " + (!!window.ReactDOM) + " | Babel: " + (!!window.Babel) +
+          String.fromCharCode(10,10) +
+          "Isso costuma acontecer quando uma VPN, rede corporativa ou bloqueador de anuncios impede o carregamento de scripts externos (cdn.jsdelivr.net). Tente desativar a VPN/bloqueador, ou trocar de rede (ex: dados moveis), e recarregar a pagina."
+        );
+      }
+    }, 4000);
+  });
+</script>
 
 <script type="text/babel" data-presets="react">
+try {
 const { useState, useEffect, useRef } = React;
 
 /* ============================================================
@@ -2443,6 +2491,9 @@ function MAApp() {
 
 const root = ReactDOM.createRoot(document.getElementById("root"));
 root.render(<MAApp />);
+} catch (err) {
+  maShowError("Erro ao rodar o aplicativo:", String(err && err.stack ? err.stack : err));
+}
 </script>
 </body>
 </html>
