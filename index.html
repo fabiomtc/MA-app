@@ -1,0 +1,2448 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<meta name="theme-color" content="#000000" />
+<title>MA</title>
+<style>
+  html, body { margin: 0; padding: 0; background: #0a0a0a; }
+  #root { min-height: 100vh; }
+</style>
+</head>
+<body>
+<div id="root"></div>
+
+<script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+<script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+<script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+
+<script type="text/babel" data-presets="react">
+const { useState, useEffect, useRef } = React;
+
+/* ============================================================
+   DESIGN TOKENS — "MA" Quiet Luxury System
+   Preto Absoluto  #000000
+   Branco Puro     #FFFFFF
+   Bruma (white on black, secondary)  rgba(255,255,255,0.45)
+   Sombra (black on white, secondary) rgba(0,0,0,0.45)
+   Fio (hairlines)  rgba(255,255,255,0.12) / rgba(0,0,0,0.12)
+   Tipografia: Inter em toda a interface — mesma família de "14 dias seguidos",
+   por legibilidade. Pesos 400/500 marcam a hierarquia, não a família.
+   Assinatura: a marca "M · A" com o conector de espaço negativo
+   ============================================================ */
+
+const FONTS_AND_KEYFRAMES = `
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&display=swap');
+
+.ma-root, .ma-root * { box-sizing: border-box; }
+.ma-root { font-family: 'Inter', sans-serif; -webkit-font-smoothing: antialiased; }
+.ma-serif { font-family: 'Inter', sans-serif; }
+
+@keyframes ma-breathe {
+  0%, 100% { opacity: 0.55; }
+  50% { opacity: 1; }
+}
+@keyframes ma-pulse-ring {
+  0% { transform: scale(1); opacity: 0.45; }
+  100% { transform: scale(2.1); opacity: 0; }
+}
+@keyframes ma-rise {
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.ma-input-underline {
+  transform: scaleX(0);
+  transform-origin: center;
+  transition: transform 500ms cubic-bezier(0.4,0,0.2,1);
+}
+.ma-input:focus + .ma-input-underline,
+.ma-input.ma-filled + .ma-input-underline { transform: scaleX(1); }
+
+.ma-btn { transition: transform 200ms ease, opacity 200ms ease; }
+.ma-btn:active { transform: scale(0.97); opacity: 0.88; }
+
+.ma-marker { transition: transform 200ms ease; }
+.ma-marker:active { transform: scale(0.94); }
+
+.ma-check-ring { transition: stroke-dashoffset 520ms cubic-bezier(0.65,0,0.35,1); }
+.ma-check-fill { transition: transform 460ms cubic-bezier(0.34,1.56,0.64,1), opacity 300ms ease; }
+.ma-check-mark { transition: stroke-dashoffset 380ms 180ms cubic-bezier(0.65,0,0.35,1); }
+
+.ma-idle-dot { animation: ma-breathe 3.4s ease-in-out infinite; }
+
+.ma-fade-focus:focus-visible { outline: 1px solid currentColor; outline-offset: 6px; }
+
+@media (prefers-reduced-motion: reduce) {
+  .ma-root * { animation-duration: 0.01ms !important; transition-duration: 0.01ms !important; }
+}
+`;
+
+/* ============================================================
+   PALAVRAS SIMPLES — dicionário local, PT-BR e EN
+   Tudo fica no aparelho: sem servidor, sem banco de dados.
+   Trocamos termos técnicos por palavras do dia a dia.
+   ============================================================ */
+const STRINGS = {
+  pt: {
+    manifesto1: "O caos consome energia.",
+    manifesto2: "O MA protege o seu espaço.",
+    nameLabel: "Nome ou apelido",
+    namePlaceholder: "Como quer ser chamado",
+    emailLabel: "E-mail",
+    emailPlaceholder: "seu@email.com",
+    passwordLabel: "Senha (6 números)",
+    confirmLabel: "Repetir a senha",
+    mismatch: "As senhas são diferentes.",
+    enter: "Entrar",
+    fillPrefix: "Falta preencher",
+    fillSuffix: "para continuar.",
+    missingName: "o nome",
+    missingEmail: "o e-mail",
+    missingPassword: "a senha de 6 números",
+    missingConfirm: "repetir a senha certinho",
+    priorityLabel: "Suas tarefas de hoje",
+    progressLabel: "Hoje",
+    doneCaption: "Feito! Seu espaço está em ordem.",
+    ritualsEyebrow: "Seus rituais",
+    ritualsTitle: "Fixos todo dia, sem escolha para pensar",
+    ritualsNote: "Física e Mental crescem devagar a cada 15 dias. Você decide se aceita.",
+    markerDoneAria: "Tarefa feita",
+    markerTodoAria: "Marcar como feita",
+    profileAria: "Abrir seu perfil",
+    back: "‹ Voltar",
+    seuPerfil: "Seu perfil",
+    daysInRow: (n) => `${n} dias seguidos`,
+    pillar1Eyebrow: "Seu ritmo do dia",
+    pillar1Title: "Melhor hora para você",
+    morning: "Manhã",
+    afternoon: "Tarde",
+    night: "Noite",
+    pillar2Eyebrow: "Fácil de usar",
+    seniorTitle: "Letras grandes",
+    seniorDesc: "Deixa os botões e as letras maiores, mais fáceis de ver.",
+    pillar3Eyebrow: "Sem culpa nos dias corridos",
+    graceTitle: "Dias de folga",
+    day1: "1 dia",
+    day2: "2 dias",
+    day3: "3 dias",
+    graceDesc: "Alguns dias por mês você pode faltar sem perder seus dias seguidos.",
+    pillar4Eyebrow: "Menos distração na tela",
+    zenTitle: "Modo tranquilo",
+    zenDesc: "Menos avisos e efeitos na tela. Só o que importa de verdade.",
+    pillar5Eyebrow: "Ligar com outros apps de saúde",
+    healthTitle: "HealthKit / Google Fit",
+    connect: "Ligar",
+    syncing: "Ligando",
+    connected: "Ligado",
+    languageEyebrow: "Idioma",
+    nightAria: "Mudar para modo dia",
+    dayAria: "Mudar para modo noturno",
+  },
+  en: {
+    manifesto1: "Chaos drains your energy.",
+    manifesto2: "MA protects your space.",
+    nameLabel: "Name or nickname",
+    namePlaceholder: "What should we call you",
+    emailLabel: "Email",
+    emailPlaceholder: "you@email.com",
+    passwordLabel: "Password (6 numbers)",
+    confirmLabel: "Type the password again",
+    mismatch: "The passwords don't match.",
+    enter: "Enter",
+    fillPrefix: "Please fill in",
+    fillSuffix: "to continue.",
+    missingName: "your name",
+    missingEmail: "your email",
+    missingPassword: "a 6-number password",
+    missingConfirm: "the password again",
+    priorityLabel: "Your tasks today",
+    progressLabel: "Today",
+    doneCaption: "Done! Your space is in order.",
+    ritualsEyebrow: "Your rituals",
+    ritualsTitle: "Fixed every day — nothing to decide",
+    ritualsNote: "Physical and Mental grow slowly every 15 days. You choose whether to accept.",
+    markerDoneAria: "Task done",
+    markerTodoAria: "Mark as done",
+    profileAria: "Open your profile",
+    back: "‹ Back",
+    seuPerfil: "Your profile",
+    daysInRow: (n) => `${n} days in a row`,
+    pillar1Eyebrow: "Your daily rhythm",
+    pillar1Title: "Your best time of day",
+    morning: "Morning",
+    afternoon: "Afternoon",
+    night: "Night",
+    pillar2Eyebrow: "Easy to use",
+    seniorTitle: "Large text",
+    seniorDesc: "Makes buttons and text bigger and easier to see.",
+    pillar3Eyebrow: "No worries on busy days",
+    graceTitle: "Rest days",
+    day1: "1 day",
+    day2: "2 days",
+    day3: "3 days",
+    graceDesc: "A few days each month don't have to count against you.",
+    pillar4Eyebrow: "Less on-screen distraction",
+    zenTitle: "Calm mode",
+    zenDesc: "Fewer alerts and effects on screen. Just what really matters.",
+    pillar5Eyebrow: "Connect other health apps",
+    healthTitle: "HealthKit / Google Fit",
+    connect: "Connect",
+    syncing: "Connecting",
+    connected: "Connected",
+    languageEyebrow: "Language",
+    nightAria: "Switch to day mode",
+    dayAria: "Switch to night mode",
+  },
+};
+STRINGS.pt = {
+  ...STRINGS.pt,
+  statsAria: "Ver gráficos",
+  statsBack: "‹ Voltar",
+  statsWeekTitle: "Esta semana",
+  statsMonthTitle: "Este mês",
+  statsCount: (n, of) => `${n} de ${of} rituais`,
+  levelEyebrow: "Seu nível",
+  levelProgress: (n) => `Faltam ${n} rituais para o próximo nível`,
+  levelMaxed: "Você chegou ao topo — por enquanto.",
+  unlockedEyebrow: "O que você já desbloqueou",
+  unlockedEmpty: "Complete rituais para desbloquear mensagens.",
+  levelUpEyebrow: "Novo nível",
+  levelUpCta: "Entendi",
+  kindJoke: "Piadinha",
+  kindQuote: "Para você",
+  kindPause: "Pausa guiada",
+  reminderEyebrow: "Lembretes diários",
+  reminderTitle: "Avisos dentro do app",
+  reminderDesc: "Água, leitura e contato social valem o dia inteiro — não têm hora certa. (Sem app instalado no celular, é só uma prévia aqui dentro.)",
+  reminderTimeLabel: "Horário do lembrete da atividade extra do dia",
+  reminderBanner: "Ainda dá tempo de fechar seus rituais de hoje.",
+  reminderDismissAria: "Dispensar aviso",
+  bonusLabel: "Atividade de hoje",
+  cycleEyebrow: "15 dias completos",
+  cycleIntro: "Aqui vai uma ideia para os próximos 15 dias — você decide.",
+  waterQuestion: (n) => `Você bebeu ${n} copos de água por dia. Que tal ${n + 1} copos nos próximos 15 dias?`,
+  readingQuestion: (n) => `Parabéns! Você cumpriu os ${n} minutos de leitura diária. Que tal passarmos para ${n + 3} minutos nos próximos 15 dias?`,
+  escalationYes: "Sim, vamos",
+  escalationKeep: "Manter como está",
+  escalationFinish: "Concluir",
+};
+STRINGS.en = {
+  ...STRINGS.en,
+  statsAria: "View charts",
+  statsBack: "‹ Back",
+  statsWeekTitle: "This week",
+  statsMonthTitle: "This month",
+  statsCount: (n, of) => `${n} of ${of} rituals`,
+  levelEyebrow: "Your level",
+  levelProgress: (n) => `${n} rituals to the next level`,
+  levelMaxed: "You've reached the top — for now.",
+  unlockedEyebrow: "What you've unlocked",
+  unlockedEmpty: "Complete rituals to unlock messages.",
+  levelUpEyebrow: "New level",
+  levelUpCta: "Got it",
+  kindJoke: "A little joke",
+  kindQuote: "For you",
+  kindPause: "Guided pause",
+  reminderEyebrow: "Daily reminders",
+  reminderTitle: "In-app alerts",
+  reminderDesc: "Water, reading, and staying in touch count all day long — no fixed time. (Without an installed app, this is just a preview.)",
+  reminderTimeLabel: "Reminder time for today's extra activity",
+  reminderBanner: "There's still time to close out today's rituals.",
+  reminderDismissAria: "Dismiss reminder",
+  bonusLabel: "Today's extra",
+  cycleEyebrow: "15 days complete",
+  cycleIntro: "Here's an idea for the next 15 days — it's your call.",
+  waterQuestion: (n) => `You've been drinking ${n} glasses of water a day. How about ${n + 1} for the next 15 days?`,
+  readingQuestion: (n) => `Nice work! You kept up ${n} minutes of daily reading. How about moving to ${n + 3} minutes for the next 15 days?`,
+  escalationYes: "Yes, let's do it",
+  escalationKeep: "Keep it as is",
+  escalationFinish: "Done",
+};
+
+/* ============================================================
+   NÍVEIS — não são pontos, são estágios de consistência.
+   Cada nível (a partir do 2º) desbloqueia uma mensagem.
+   ============================================================ */
+const LEVELS = {
+  pt: [
+    { threshold: 0, name: "Semente" },
+    {
+      threshold: 8,
+      name: "Broto",
+      kind: "joke",
+      message: "Por que o hábito foi ao psicólogo? Porque vivia se repetindo.",
+    },
+    {
+      threshold: 19,
+      name: "Raiz",
+      kind: "quote",
+      message: "Você não precisa ser perfeito para ser consistente. Só precisa aparecer de novo amanhã.",
+    },
+    {
+      threshold: 32,
+      name: "Ramo",
+      kind: "pause",
+      message: "Feche os olhos por 60 segundos. Inspire em 4 tempos, solte em 6. Isso já é suficiente por hoje.",
+    },
+    {
+      threshold: 48,
+      name: "Copa",
+      kind: "quote",
+      message: "Seu espaço está mais organizado do que há um mês. Isso é mérito seu — não sorte.",
+    },
+    {
+      threshold: 67,
+      name: "Bosque",
+      kind: "joke",
+      message: "Qual é o hábito favorito da árvore? Dar folga.",
+    },
+  ],
+  en: [
+    { threshold: 0, name: "Seed" },
+    {
+      threshold: 8,
+      name: "Sprout",
+      kind: "joke",
+      message: "Why did the habit see a therapist? It kept repeating itself.",
+    },
+    {
+      threshold: 19,
+      name: "Root",
+      kind: "quote",
+      message: "You don't have to be perfect to be consistent. You just have to show up again tomorrow.",
+    },
+    {
+      threshold: 32,
+      name: "Branch",
+      kind: "pause",
+      message: "Close your eyes for 60 seconds. Breathe in for 4, out for 6. That's enough for today.",
+    },
+    {
+      threshold: 48,
+      name: "Canopy",
+      kind: "quote",
+      message: "Your space is more in order than it was a month ago. That's your doing — not luck.",
+    },
+    {
+      threshold: 67,
+      name: "Grove",
+      kind: "joke",
+      message: "What's a tree's favorite habit? Taking a day off.",
+    },
+  ],
+};
+
+/* ============================================================
+   RITUAIS FIXOS — sem escolha. Física e Mental têm um número que
+   pode subir a cada ciclo de 15 dias; Social fica estável de propósito
+   (não force quantidade em vínculo social).
+   ============================================================ */
+const ANCHORS = {
+  pt: {
+    physicalLabel: "Física",
+    mentalLabel: "Mental",
+    socialLabel: "Social",
+    physicalText: (n) => `Beber ${n} copos de água ao longo do dia`,
+    mentalText: (n) => `${n} minutos de leitura`,
+    socialText: "Falar com alguém querido",
+  },
+  en: {
+    physicalLabel: "Physical",
+    mentalLabel: "Mental",
+    socialLabel: "Social",
+    physicalText: (n) => `Drink ${n} glasses of water through the day`,
+    mentalText: (n) => `${n} minutes of reading`,
+    socialText: "Reach out to someone you love",
+  },
+};
+
+/* ============================================================
+   BIBLIOTECA DE 15 DIAS — a 4ª atividade do dia, uma nova a cada
+   dia, de qualquer um dos 3 pilares. Depois do dia 15, repete.
+   ============================================================ */
+const LIBRARY = {
+  pt: [
+    { pillar: "physical", text: "Alongar por 5 minutos ao acordar" },
+    { pillar: "mental", text: "Ouvir uma música que você ama, com atenção total" },
+    { pillar: "social", text: "Elogiar alguém hoje" },
+    { pillar: "physical", text: "Subir e descer escadas duas vezes, no seu ritmo" },
+    { pillar: "mental", text: "Escrever 3 coisas boas do seu dia" },
+    { pillar: "social", text: "Compartilhar uma lembrança boa com alguém" },
+    { pillar: "physical", text: "10 minutos de dança ou movimento livre" },
+    { pillar: "mental", text: "Resolver um quebra-cabeça ou jogo de memória" },
+    { pillar: "social", text: "Perguntar como foi o dia de alguém — e ouvir de verdade" },
+    { pillar: "physical", text: "Respirar fundo 10 vezes ao ar livre" },
+    { pillar: "mental", text: "Assistir a algo que te ensina uma coisa nova" },
+    { pillar: "social", text: "Enviar uma mensagem de bom dia para alguém" },
+    { pillar: "physical", text: "Cuidar de uma planta ou do jardim" },
+    { pillar: "mental", text: "Organizar uma gaveta ou um cantinho da casa" },
+    { pillar: "social", text: "Combinar a próxima conversa com alguém" },
+  ],
+  en: [
+    { pillar: "physical", text: "Stretch for 5 minutes when you wake up" },
+    { pillar: "mental", text: "Listen to a song you love, with full attention" },
+    { pillar: "social", text: "Give someone a compliment today" },
+    { pillar: "physical", text: "Walk up and down stairs twice, at your pace" },
+    { pillar: "mental", text: "Write down 3 good things about your day" },
+    { pillar: "social", text: "Share a good memory with someone" },
+    { pillar: "physical", text: "10 minutes of dancing or free movement" },
+    { pillar: "mental", text: "Solve a puzzle or memory game" },
+    { pillar: "social", text: "Ask how someone's day was — and really listen" },
+    { pillar: "physical", text: "Take 10 deep breaths outdoors" },
+    { pillar: "mental", text: "Watch something that teaches you one new thing" },
+    { pillar: "social", text: "Send someone a good-morning message" },
+    { pillar: "physical", text: "Tend to a plant or the garden" },
+    { pillar: "mental", text: "Tidy a drawer or a small corner of the house" },
+    { pillar: "social", text: "Set up your next conversation with someone" },
+  ],
+};
+
+/* Só existem duas cores no MA — esta função dá a versão "apagada" de cada uma */
+const withAlpha = (hex, a) =>
+  hex === "#ffffff" || hex === "#fff" ? `rgba(255,255,255,${a})` : `rgba(0,0,0,${a})`;
+
+/* Sem servidor, não há histórico real — simulamos dias anteriores uma única vez
+   por sessão. Viés para cima: as âncoras fixas são simples de cumprir. */
+const dayCount = () => {
+  const r = Math.random();
+  if (r < 0.05) return 0;
+  if (r < 0.15) return 1;
+  if (r < 0.35) return 2;
+  if (r < 0.65) return 3;
+  return 4;
+};
+
+/* Acha o nível atual (o último cujo limite já foi alcançado) */
+const levelIndexFor = (total, levels) => {
+  let idx = 0;
+  for (let i = 0; i < levels.length; i++) if (total >= levels[i].threshold) idx = i;
+  return idx;
+};
+
+/* ---------- Marca "M · A" (assinatura visual) ---------- */
+function Connector({ height = 88, color = "#fff" }) {
+  const w = height * 0.34;
+  const scale = height / 110; // px reais por unidade do viewBox
+  const sw = Math.max(1, 1 / scale); // nunca menos que ~1px real, senão vira cinza
+  const topR = Math.max(3.4, 1.6 / scale);
+  const botR = Math.max(3.2, 1.5 / scale);
+  return (
+    <svg width={w} height={height} viewBox="0 0 40 110" fill="none" style={{ display: "block", flexShrink: 0 }}>
+      <circle cx="20" cy="7" r={topR} fill={color} />
+      <line x1="20" y1="11" x2="20" y2="79" stroke={color} strokeWidth={sw} />
+      <rect x="6" y="79" width="28" height="28" rx="7" stroke={color} strokeWidth={sw} />
+      <circle cx="20" cy="93" r={botR} fill={color} />
+    </svg>
+  );
+}
+
+/* M com o vão central aberto — não toca a base, o negativo é o desenho */
+function LetterM({ size = 54, color = "#fff" }) {
+  const w = size * (100 / 110);
+  const strokeW = Math.max(110 / size, size * 0.024); // espessura real mínima ~1px, nunca cinza
+  return (
+    <svg
+      width={w}
+      height={size}
+      viewBox="0 0 100 110"
+      fill="none"
+      style={{ display: "block", flexShrink: 0 }}
+    >
+      <path
+        d="M8,4 L8,100 M8,4 L47,62 M47,62 L86,4 M86,4 L86,100"
+        stroke={color}
+        strokeWidth={strokeW}
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </svg>
+  );
+}
+
+/* A de ápice pontudo, travessa a meia altura */
+function LetterA({ size = 54, color = "#fff" }) {
+  const w = size * (90 / 110);
+  const strokeW = Math.max(110 / size, size * 0.024); // espessura real mínima ~1px, nunca cinza
+  return (
+    <svg
+      width={w}
+      height={size}
+      viewBox="0 0 90 110"
+      fill="none"
+      style={{ display: "block", flexShrink: 0 }}
+    >
+      <path
+        d="M45,4 L6,100 M45,4 L84,100 M22,66 L68,66"
+        stroke={color}
+        strokeWidth={strokeW}
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </svg>
+  );
+}
+
+function Wordmark({ size = 56, color = "#fff", opacity = 1, style = {} }) {
+  return (
+    <div
+      style={{
+        display: "flex",
+        alignItems: "flex-start",
+        gap: size * 0.22,
+        opacity,
+        ...style,
+      }}
+    >
+      <LetterM size={size} color={color} />
+      <div style={{ marginTop: size * 0.39 }}>
+        <Connector height={size * 1.7} color={color} />
+      </div>
+      <LetterA size={size} color={color} />
+    </div>
+  );
+}
+
+/* ---------- Marcador de conclusão (dashboard) ---------- */
+function TaskMarker({
+  done,
+  onToggle,
+  scale = 1,
+  zen = false,
+  doneLabel = "Done",
+  todoLabel = "Mark as done",
+  fg = "#ffffff",
+  bg = "#000000",
+}) {
+  const size = 64 * scale;
+  const c = size / 2;
+  const r = 26 * scale;
+  const k = size / 64;
+  return (
+    <button
+      onClick={onToggle}
+      aria-pressed={done}
+      aria-label={done ? doneLabel : todoLabel}
+      className="ma-marker ma-fade-focus"
+      style={{
+        position: "relative",
+        width: size,
+        height: size,
+        background: "transparent",
+        border: "none",
+        cursor: done ? "default" : "pointer",
+        padding: 0,
+      }}
+    >
+      {done && !zen && (
+        <span
+          style={{
+            position: "absolute",
+            inset: 0,
+            borderRadius: "9999px",
+            border: `1px solid ${fg}`,
+            animation: "ma-pulse-ring 700ms ease-out",
+          }}
+        />
+      )}
+      <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`}>
+        <circle cx={c} cy={c} r={r} fill="none" stroke={fg} strokeOpacity="0.28" strokeWidth="1" />
+        <circle
+          className="ma-check-fill"
+          cx={c}
+          cy={c}
+          r={r - 4 * k}
+          fill={fg}
+          style={{
+            transformOrigin: `${c}px ${c}px`,
+            transform: done ? "scale(1)" : "scale(0)",
+            opacity: done ? 1 : 0,
+          }}
+        />
+        <path
+          className="ma-check-mark"
+          d={`M${21 * k} ${32.5 * k} L${28.5 * k} ${40 * k} L${43 * k} ${24 * k}`}
+          fill="none"
+          stroke={bg}
+          strokeWidth={2.4 * k}
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          strokeDasharray={34 * k}
+          strokeDashoffset={done ? 0 : 34 * k}
+        />
+        {!done && (
+          <circle
+            className={zen ? "" : "ma-idle-dot"}
+            cx={c}
+            cy={c}
+            r={2.4 * k}
+            fill={fg}
+            style={{ opacity: zen ? 0.55 : undefined }}
+          />
+        )}
+      </svg>
+    </button>
+  );
+}
+
+/* ---------- Campo de formulário (linha única, sem caixas) ---------- */
+function Field({ id, label, value, onChange, type = "text", inputMode, maxLength, placeholder }) {
+  return (
+    <div style={{ width: "100%", marginBottom: 22 }}>
+      <label
+        htmlFor={id}
+        style={{
+          display: "block",
+          fontSize: 11,
+          letterSpacing: "0.18em",
+          textTransform: "uppercase",
+          color: "rgba(0,0,0,0.4)",
+          marginBottom: 10,
+        }}
+      >
+        {label}
+      </label>
+      <input
+        id={id}
+        type={type}
+        inputMode={inputMode}
+        maxLength={maxLength}
+        value={value}
+        placeholder={placeholder}
+        onChange={onChange}
+        className={`ma-input ma-fade-focus${value ? " ma-filled" : ""}`}
+        style={{
+          width: "100%",
+          fontFamily: "Inter, sans-serif",
+          fontSize: 16,
+          fontWeight: 400,
+          color: "#000000",
+          background: "transparent",
+          border: "none",
+          borderBottom: "1px solid rgba(0,0,0,0.15)",
+          padding: "0 0 10px 0",
+          outline: "none",
+          letterSpacing: type === "password" ? "0.3em" : "normal",
+        }}
+      />
+      <div className="ma-input-underline" style={{ height: 1, background: "#000000" }} />
+    </div>
+  );
+}
+
+/* ---------- Switch premium (trilho + esfera, monocromático) ---------- */
+function Switch({ checked, onChange, scale = 1, label, fg = "#ffffff", bg = "#000000" }) {
+  const w = 44 * scale;
+  const h = 26 * scale;
+  const knob = h - 8;
+  const travel = w - h + 2;
+  return (
+    <button
+      role="switch"
+      aria-checked={checked}
+      aria-label={label}
+      onClick={() => onChange(!checked)}
+      className="ma-fade-focus"
+      style={{
+        width: w,
+        height: h,
+        borderRadius: h / 2,
+        border: `1px solid ${checked ? fg : withAlpha(fg, 0.35)}`,
+        background: checked ? fg : "transparent",
+        position: "relative",
+        padding: 0,
+        cursor: "pointer",
+        flexShrink: 0,
+        transition: "background 260ms ease, border-color 260ms ease",
+      }}
+    >
+      <span
+        style={{
+          position: "absolute",
+          top: 3,
+          left: 3,
+          width: knob,
+          height: knob,
+          borderRadius: "50%",
+          background: checked ? bg : fg,
+          transform: `translateX(${checked ? travel : 0}px)`,
+          transition: "transform 260ms cubic-bezier(0.4,0,0.2,1), background 260ms ease",
+        }}
+      />
+    </button>
+  );
+}
+
+/* ---------- Seletor segmentado (texto + hairlines, sem botões pesados) ---------- */
+function Segmented({ options, value, onChange, scale = 1, fg = "#ffffff" }) {
+  return (
+    <div
+      style={{
+        display: "flex",
+        border: `1px solid ${withAlpha(fg, 0.16)}`,
+      }}
+    >
+      {options.map((opt, i) => (
+        <button
+          key={opt.value}
+          onClick={() => onChange(opt.value)}
+          className="ma-fade-focus"
+          style={{
+            flex: 1,
+            padding: `${13 * scale}px 4px`,
+            background: "transparent",
+            border: "none",
+            borderLeft: i > 0 ? `1px solid ${withAlpha(fg, 0.16)}` : "none",
+            color: value === opt.value ? fg : withAlpha(fg, 0.4),
+            fontFamily: "Inter, sans-serif",
+            fontSize: 11 * scale,
+            letterSpacing: "0.12em",
+            textTransform: "uppercase",
+            fontWeight: value === opt.value ? 500 : 400,
+            cursor: "pointer",
+          }}
+        >
+          {opt.label}
+        </button>
+      ))}
+    </div>
+  );
+}
+
+/* ---------- Botão de acesso aos gráficos ---------- */
+function StatsButton({ onClick, scale = 1, fg = "#ffffff", label }) {
+  const size = 30 * scale;
+  return (
+    <button
+      onClick={onClick}
+      aria-label={label}
+      className="ma-fade-focus"
+      style={{
+        width: size,
+        height: size,
+        borderRadius: "9999px",
+        border: `1px solid ${withAlpha(fg, 0.35)}`,
+        background: "transparent",
+        padding: 0,
+        cursor: "pointer",
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        flexShrink: 0,
+      }}
+    >
+      <svg width={size * 0.5} height={size * 0.5} viewBox="0 0 32 32">
+        <circle cx="16" cy="16" r="10" fill="none" stroke={fg} strokeWidth="1.4" />
+        <path d="M16 6 L16 16 L24 20" fill="none" stroke={fg} strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round" />
+      </svg>
+    </button>
+  );
+}
+
+/* ---------- Botão de modo noturno / modo dia ---------- */
+function NightToggle({ night, onToggle, scale = 1, fg = "#ffffff", bg = "#000000", label }) {
+  const size = 30 * scale;
+  return (
+    <button
+      onClick={onToggle}
+      aria-label={label}
+      className="ma-fade-focus"
+      style={{
+        width: size,
+        height: size,
+        borderRadius: "9999px",
+        border: `1px solid ${withAlpha(fg, 0.35)}`,
+        background: "transparent",
+        padding: 0,
+        cursor: "pointer",
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        flexShrink: 0,
+      }}
+    >
+      <svg width={size * 0.52} height={size * 0.52} viewBox="0 0 32 32">
+        {night ? (
+          <>
+            <circle cx="16" cy="16" r="9" fill={fg} />
+            <circle cx="20.5" cy="12.5" r="7.5" fill={bg} />
+          </>
+        ) : (
+          <>
+            <circle cx="16" cy="16" r="6" fill="none" stroke={fg} strokeWidth="1.4" />
+            {[0, 45, 90, 135, 180, 225, 270, 315].map((deg) => (
+              <line
+                key={deg}
+                x1="16"
+                y1="3"
+                x2="16"
+                y2="6.5"
+                stroke={fg}
+                strokeWidth="1.4"
+                strokeLinecap="round"
+                transform={`rotate(${deg} 16 16)`}
+              />
+            ))}
+          </>
+        )}
+      </svg>
+    </button>
+  );
+}
+
+/* ---------- Gráfico de pizza (donut, monocromático) ---------- */
+function Donut({ percent, count, of, label, fg, bg, scale = 1 }) {
+  const size = 148 * scale;
+  const r = 58;
+  const c = 2 * Math.PI * r;
+  const filled = (Math.max(0, Math.min(100, percent)) / 100) * c;
+  return (
+    <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 10 * scale }}>
+      <div style={{ position: "relative", width: size, height: size }}>
+        <svg width={size} height={size} viewBox="0 0 140 140">
+          <circle cx="70" cy="70" r={r} fill="none" stroke={withAlpha(fg, 0.14)} strokeWidth="10" />
+          <circle
+            cx="70"
+            cy="70"
+            r={r}
+            fill="none"
+            stroke={fg}
+            strokeWidth="10"
+            strokeLinecap="round"
+            strokeDasharray={`${filled} ${c}`}
+            transform="rotate(-90 70 70)"
+            style={{ transition: "stroke-dasharray 600ms cubic-bezier(0.4,0,0.2,1)" }}
+          />
+        </svg>
+        <div
+          style={{
+            position: "absolute",
+            inset: 0,
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            fontFamily: "Inter, sans-serif",
+            fontSize: 22 * scale,
+            fontWeight: 500,
+            color: fg,
+          }}
+        >
+          {percent}%
+        </div>
+      </div>
+      <div style={{ textAlign: "center" }}>
+        <div
+          style={{
+            fontSize: 12 * scale,
+            letterSpacing: "0.14em",
+            textTransform: "uppercase",
+            color: fg,
+            marginBottom: 4,
+          }}
+        >
+          {label}
+        </div>
+        <div style={{ fontSize: 11 * scale, color: withAlpha(fg, 0.45) }}>{count}</div>
+      </div>
+    </div>
+  );
+}
+
+/* ============================================================
+   APP
+   ============================================================ */
+function MAApp() {
+  const [screen, setScreen] = useState("splash"); // splash | signup | dashboard | profile | stats
+  const [lettersOpacity, setLettersOpacity] = useState(0);
+  const [connectorRisen, setConnectorRisen] = useState(false);
+  const [overlayOpacity, setOverlayOpacity] = useState(0);
+  const [overlayMs, setOverlayMs] = useState(900);
+  const [dashOpacity, setDashOpacity] = useState(0);
+  const [profileOpacity, setProfileOpacity] = useState(0);
+  const [language, setLanguage] = useState("pt"); // pt | en — tudo local, sem servidor
+  const [name, setName] = useState("");
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
+
+  // Rituais fixos — sem escolha. Física e Mental têm um número que pode subir.
+  const [waterGlasses, setWaterGlasses] = useState(6);
+  const [readingMinutes, setReadingMinutes] = useState(15);
+  const [physicalDone, setPhysicalDone] = useState(false);
+  const [mentalDone, setMentalDone] = useState(false);
+  const [socialDone, setSocialDone] = useState(false);
+  const [libraryDone, setLibraryDone] = useState(false); // a 4ª atividade, a do dia na biblioteca
+
+  // Convite de progressão — aparece ao fechar um ciclo de 15 dias
+  const [escalationVisible, setEscalationVisible] = useState(false);
+  const [escalationSeen, setEscalationSeen] = useState(false);
+  const [physicalChoice, setPhysicalChoice] = useState(null); // null | true | false
+  const [mentalChoice, setMentalChoice] = useState(null);
+
+  // Gráficos — sem servidor, então simulamos os 29 dias anteriores 1x por sessão;
+  // hoje entra ao vivo, de acordo com o que a pessoa está marcando agora.
+  const [monthlyBase] = useState(() => Array.from({ length: 29 }, dayCount));
+  const [statsOpacity, setStatsOpacity] = useState(0);
+
+  // Lembretes diários — aviso dentro do próprio app (sem push real de sistema)
+  const [remindersOn, setRemindersOn] = useState(true);
+  const [reminderTime, setReminderTime] = useState("manha"); // manha | tarde | noite
+  const [reminderDismissed, setReminderDismissed] = useState(false);
+  const [reminderVisible, setReminderVisible] = useState(false);
+
+  // Níveis — não são pontos, são estágios; cada um novo pode desbloquear uma mensagem
+  const [levelUpLevel, setLevelUpLevel] = useState(null);
+  const prevLevelIdxRef = useRef(null);
+
+  // Perfil — centro de controle cognitivo e motor das rotinas
+  const [chronotype, setChronotype] = useState("matutino");
+  const [seniorMode, setSeniorMode] = useState(false);
+  const [graceDays, setGraceDays] = useState(2);
+  const [zenMode, setZenMode] = useState(false);
+  const [healthStatus, setHealthStatus] = useState("idle"); // idle | syncing | connected
+  const [nightMode, setNightMode] = useState(true); // Dashboard e Perfil: preto (noite) ou branco (dia)
+
+  const timers = useRef([]);
+  const t = STRINGS[language];
+
+  const nameValid = name.trim().length > 1;
+  const emailValid = /^\S+@\S+\.\S+$/.test(email.trim());
+  const passwordValid = /^\d{6}$/.test(password);
+  const passwordsMatch = confirmPassword.length === 6 && confirmPassword === password;
+  const showMismatch = confirmPassword.length === 6 && !passwordsMatch;
+  const canSubmit = nameValid && emailValid && passwordValid && passwordsMatch;
+
+  const missingFields = [];
+  if (!nameValid) missingFields.push(t.missingName);
+  if (!emailValid) missingFields.push(t.missingEmail);
+  if (!passwordValid) missingFields.push(t.missingPassword);
+  if (passwordValid && !passwordsMatch) missingFields.push(t.missingConfirm);
+
+  const after = (fn, ms) => {
+    const t = setTimeout(fn, ms);
+    timers.current.push(t);
+    return t;
+  };
+
+  // Splash sequence — o conector nasce no pé da tela e sobe até seu lugar
+  useEffect(() => {
+    if (screen !== "splash") return;
+    after(() => setLettersOpacity(1), 60);
+    after(() => setConnectorRisen(true), 250);
+    after(() => {
+      setOverlayMs(900);
+      setOverlayOpacity(1);
+      setScreen("signup");
+    }, 4000);
+    return () => timers.current.forEach(clearTimeout);
+  }, [screen]);
+
+  // Signup: "acender as luzes"
+  useEffect(() => {
+    if (screen !== "signup") return;
+    const t = setTimeout(() => setOverlayOpacity(0), 90);
+    return () => clearTimeout(t);
+  }, [screen]);
+
+  // Dashboard entrance fade
+  useEffect(() => {
+    if (screen === "dashboard") {
+      const t = setTimeout(() => setDashOpacity(1), 80);
+      return () => clearTimeout(t);
+    }
+    setDashOpacity(0);
+  }, [screen]);
+
+  // Perfil: entrada e saída são apenas um crossfade — mesma tela, mesmo fundo preto
+  useEffect(() => {
+    if (screen === "profile") {
+      const t = setTimeout(() => setProfileOpacity(1), 60);
+      return () => clearTimeout(t);
+    }
+    setProfileOpacity(0);
+  }, [screen]);
+
+  // Gráficos: mesmo crossfade
+  useEffect(() => {
+    if (screen === "stats") {
+      const t = setTimeout(() => setStatsOpacity(1), 60);
+      return () => clearTimeout(t);
+    }
+    setStatsOpacity(0);
+  }, [screen]);
+
+  function handleEntrar() {
+    setOverlayMs(500);
+    setOverlayOpacity(1);
+    setTimeout(() => {
+      setScreen("dashboard");
+      setTimeout(() => setOverlayOpacity(0), 40);
+    }, 500);
+  }
+
+  function connectHealth() {
+    if (healthStatus !== "idle") return;
+    setHealthStatus("syncing");
+    setTimeout(() => setHealthStatus("connected"), 1300);
+  }
+
+  const streakDays = 14;
+  const uiScale = seniorMode ? 1.16 : 1;
+  const theme = nightMode ? { bg: "#000000", fg: "#ffffff" } : { bg: "#ffffff", fg: "#000000" };
+  const anchors = ANCHORS[language];
+  const physicalText = anchors.physicalText(waterGlasses);
+  const mentalText = anchors.mentalText(readingMinutes);
+  const socialText = anchors.socialText;
+
+  // Dia de hoje dentro do ciclo de 15 — reaproveita a mesma contagem de dias dos gráficos
+  const dayNumber = monthlyBase.length + 1; // "hoje" é o dia seguinte ao histórico simulado
+  const cycleDay = ((dayNumber - 1) % 15) + 1; // 1 a 15
+  const libraryIndex = cycleDay - 1;
+  const libraryItem = LIBRARY[language][libraryIndex];
+  const libraryPillarLabel =
+    libraryItem.pillar === "physical" ? anchors.physicalLabel : libraryItem.pillar === "mental" ? anchors.mentalLabel : anchors.socialLabel;
+
+  const doneCount = [physicalDone, mentalDone, socialDone, libraryDone].filter(Boolean).length;
+  const progressPercent = Math.round((doneCount / 4) * 100);
+
+  const monthlySeries = [...monthlyBase, doneCount];
+  const weeklySeries = monthlySeries.slice(-7);
+  const weekTotal = weeklySeries.reduce((a, b) => a + b, 0);
+  const monthTotal = monthlySeries.reduce((a, b) => a + b, 0);
+  const weekPercent = Math.round((weekTotal / (weeklySeries.length * 4)) * 100);
+  const monthPercent = Math.round((monthTotal / (monthlySeries.length * 4)) * 100);
+
+  const levels = LEVELS[language];
+  const levelIdx = levelIndexFor(monthTotal, levels);
+  const currentLevel = levels[levelIdx];
+  const nextLevel = levels[levelIdx + 1] || null;
+  const unlockedLevels = levels.slice(1, levelIdx + 1);
+
+  // Detecta subida de nível (compara com o nível anterior, ignora a primeira leitura)
+  useEffect(() => {
+    if (prevLevelIdxRef.current === null) {
+      prevLevelIdxRef.current = levelIdx;
+      return;
+    }
+    if (levelIdx > prevLevelIdxRef.current) {
+      if (!zenMode) setLevelUpLevel(levels[levelIdx]);
+    }
+    prevLevelIdxRef.current = levelIdx;
+  }, [levelIdx]);
+
+  // Fim de um ciclo de 15 dias — convite (não obrigação) de aumentar a âncora
+  useEffect(() => {
+    if (cycleDay !== 15 || escalationSeen || screen !== "dashboard") return;
+    const timer = setTimeout(() => {
+      setEscalationVisible(true);
+      setEscalationSeen(true);
+    }, 1400);
+    return () => clearTimeout(timer);
+  }, [cycleDay, escalationSeen, screen]);
+
+  // Lembrete diário — simula um aviso surgindo durante a sessão, dentro do app
+  useEffect(() => {
+    if (screen !== "dashboard" || !remindersOn || reminderDismissed || doneCount === 4) {
+      setReminderVisible(false);
+      return;
+    }
+    const timer = setTimeout(() => setReminderVisible(true), 3200);
+    return () => clearTimeout(timer);
+  }, [screen, remindersOn, reminderDismissed, doneCount]);
+  const displayName = name.trim()
+    ? name.trim()
+    : email.includes("@")
+    ? email.split("@")[0].replace(/[._]/g, " ").replace(/\b\w/g, (c) => c.toUpperCase())
+    : t.seuPerfil;
+
+  return (
+    <div
+      className="ma-root"
+      style={{
+        minHeight: "100vh",
+        width: "100%",
+        background: "#0a0a0a",
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        padding: "32px 16px",
+      }}
+    >
+      <style>{FONTS_AND_KEYFRAMES}</style>
+
+      {/* Moldura do dispositivo */}
+      <div
+        style={{
+          position: "relative",
+          width: "100%",
+          maxWidth: 380,
+          height: 780,
+          maxHeight: "92vh",
+          borderRadius: "2.25rem",
+          overflow: "hidden",
+          border: "1px solid rgba(255,255,255,0.08)",
+          boxShadow: "0 30px 80px rgba(0,0,0,0.55)",
+          background: screen === "signup" ? "#FFFFFF" : screen === "splash" ? "#000000" : theme.bg,
+        }}
+      >
+        {/* ---------------- SPLASH ---------------- */}
+        {screen === "splash" && (
+          <div
+            style={{
+              position: "absolute",
+              inset: 0,
+              background: "#000000",
+              overflow: "hidden",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+            }}
+          >
+            {/* Linha de base: M, um vão reservado e A — define o centro exato */}
+            <div style={{ display: "flex", alignItems: "flex-start", gap: 12 }}>
+              <div style={{ opacity: lettersOpacity, transition: "opacity 550ms ease" }}>
+                <LetterM size={54} color="#ffffff" />
+              </div>
+              <div style={{ width: 31, height: 92, flexShrink: 0 }} aria-hidden="true" />
+              <div style={{ opacity: lettersOpacity, transition: "opacity 550ms ease" }}>
+                <LetterA size={54} color="#ffffff" />
+              </div>
+            </div>
+
+            {/* Conector: nasce no pé da tela e sobe até seu lugar entre as letras */}
+            <div
+              style={{
+                position: "absolute",
+                top: "50%",
+                left: "50%",
+                transform: connectorRisen
+                  ? "translate(-50%, calc(-50% + 21px))"
+                  : "translate(-50%, calc(-50% + 341px))",
+                transition: "transform 3400ms cubic-bezier(0.16, 1, 0.3, 1)",
+              }}
+            >
+              <Connector height={92} color="#ffffff" />
+            </div>
+          </div>
+        )}
+
+        {/* ---------------- SIGNUP ---------------- */}
+        {screen === "signup" && (
+          <div
+            style={{
+              position: "absolute",
+              inset: 0,
+              background: "#FFFFFF",
+              display: "flex",
+              flexDirection: "column",
+              alignItems: "center",
+              padding: "44px 40px 40px",
+            }}
+          >
+            <Wordmark size={32} color="#000000" style={{ marginBottom: 6 }} />
+
+            <div style={{ padding: "22px 0 26px" }}>
+              <p
+                className="ma-serif"
+                style={{
+                  fontSize: 21,
+                  lineHeight: 1.45,
+                  textAlign: "center",
+                  letterSpacing: "0.01em",
+                  color: "#000000",
+                  fontWeight: 400,
+                  margin: 0,
+                }}
+              >
+                {t.manifesto1}
+                <br />
+                {t.manifesto2}
+              </p>
+            </div>
+
+            <div style={{ width: "100%", flex: 1, minHeight: 0, overflowY: "auto" }}>
+              <Field
+                id="ma-name"
+                label={t.nameLabel}
+                type="text"
+                value={name}
+                placeholder={t.namePlaceholder}
+                onChange={(e) => setName(e.target.value)}
+              />
+              <Field
+                id="ma-email"
+                label={t.emailLabel}
+                type="email"
+                inputMode="email"
+                value={email}
+                placeholder={t.emailPlaceholder}
+                onChange={(e) => setEmail(e.target.value)}
+              />
+              <Field
+                id="ma-password"
+                label={t.passwordLabel}
+                type="password"
+                inputMode="numeric"
+                maxLength={6}
+                value={password}
+                placeholder="••••••"
+                onChange={(e) => setPassword(e.target.value.replace(/\D/g, "").slice(0, 6))}
+              />
+              <div>
+                <Field
+                  id="ma-confirm-password"
+                  label={t.confirmLabel}
+                  type="password"
+                  inputMode="numeric"
+                  maxLength={6}
+                  value={confirmPassword}
+                  placeholder="••••••"
+                  onChange={(e) => setConfirmPassword(e.target.value.replace(/\D/g, "").slice(0, 6))}
+                />
+                <p
+                  style={{
+                    fontSize: 11,
+                    letterSpacing: "0.02em",
+                    color: "rgba(0,0,0,0.4)",
+                    margin: "-14px 0 0",
+                    minHeight: 14,
+                  }}
+                >
+                  {showMismatch ? t.mismatch : ""}
+                </p>
+              </div>
+            </div>
+
+            <button
+              onClick={handleEntrar}
+              disabled={!canSubmit}
+              className="ma-btn ma-fade-focus"
+              style={{
+                width: "100%",
+                padding: "17px 0",
+                background: "#000000",
+                color: "#FFFFFF",
+                border: "none",
+                fontFamily: "Inter, sans-serif",
+                fontSize: 13,
+                fontWeight: 500,
+                letterSpacing: "0.22em",
+                textTransform: "uppercase",
+                cursor: canSubmit ? "pointer" : "not-allowed",
+                opacity: canSubmit ? 1 : 0.35,
+              }}
+            >
+              {t.enter}
+            </button>
+            <p
+              style={{
+                fontSize: 11,
+                letterSpacing: "0.02em",
+                color: "rgba(0,0,0,0.4)",
+                margin: "10px 0 0",
+                minHeight: 14,
+                textAlign: "center",
+              }}
+            >
+              {!canSubmit && missingFields.length > 0
+                ? `${t.fillPrefix} ${missingFields.join(", ")} ${t.fillSuffix}`
+                : ""}
+            </p>
+          </div>
+        )}
+
+        {/* ---------------- DASHBOARD ---------------- */}
+        {screen === "dashboard" && (
+          <div
+            style={{
+              position: "absolute",
+              inset: 0,
+              background: theme.bg,
+              display: "flex",
+              flexDirection: "column",
+              alignItems: "center",
+              padding: "44px 36px 56px",
+              opacity: dashOpacity,
+              transition: "opacity 600ms ease-in-out, background 300ms ease",
+            }}
+          >
+            {/* Indicador de consistência + botões de modo noturno e perfil */}
+            <div
+              style={{
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "space-between",
+                width: "100%",
+              }}
+            >
+              <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                <span
+                  style={{
+                    width: 5,
+                    height: 5,
+                    borderRadius: "9999px",
+                    background: theme.fg,
+                    display: "inline-block",
+                  }}
+                />
+                <span
+                  style={{
+                    fontSize: 11 * uiScale,
+                    letterSpacing: "0.18em",
+                    textTransform: "uppercase",
+                    color: withAlpha(theme.fg, 0.5),
+                  }}
+                >
+                  {t.daysInRow(streakDays)}
+                </span>
+              </div>
+
+              <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                <StatsButton
+                  onClick={() => setScreen("stats")}
+                  scale={uiScale}
+                  fg={theme.fg}
+                  label={t.statsAria}
+                />
+                <NightToggle
+                  night={nightMode}
+                  onToggle={() => setNightMode(!nightMode)}
+                  scale={uiScale}
+                  fg={theme.fg}
+                  bg={theme.bg}
+                  label={nightMode ? t.nightAria : t.dayAria}
+                />
+                <button
+                  onClick={() => setScreen("profile")}
+                  aria-label={t.profileAria}
+                  className="ma-fade-focus"
+                  style={{
+                    width: 30 * uiScale,
+                    height: 30 * uiScale,
+                    borderRadius: "9999px",
+                    border: `1px solid ${withAlpha(theme.fg, 0.35)}`,
+                    background: "transparent",
+                    color: theme.fg,
+                    fontFamily: "Inter, sans-serif",
+                    fontSize: 12 * uiScale,
+                    letterSpacing: "0.02em",
+                    cursor: "pointer",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                  }}
+                >
+                  {displayName.charAt(0).toUpperCase()}
+                </button>
+              </div>
+            </div>
+
+            {/* Barra de progresso geral do dia */}
+            <div style={{ width: "100%", marginTop: 16 * uiScale }}>
+              <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 7 }}>
+                <span
+                  style={{
+                    fontSize: 10 * uiScale,
+                    letterSpacing: "0.16em",
+                    textTransform: "uppercase",
+                    color: withAlpha(theme.fg, 0.4),
+                  }}
+                >
+                  {t.progressLabel}
+                </span>
+                <span
+                  style={{
+                    fontSize: 10 * uiScale,
+                    letterSpacing: "0.16em",
+                    color: withAlpha(theme.fg, 0.4),
+                  }}
+                >
+                  {progressPercent}%
+                </span>
+              </div>
+              <div style={{ height: 1, background: withAlpha(theme.fg, 0.14), position: "relative" }}>
+                <div
+                  style={{
+                    position: "absolute",
+                    left: 0,
+                    top: 0,
+                    height: 1,
+                    width: `${progressPercent}%`,
+                    background: theme.fg,
+                    transition: "width 450ms cubic-bezier(0.4,0,0.2,1)",
+                  }}
+                />
+              </div>
+            </div>
+
+            {/* Lembrete diário — aparece dentro do app, não é notificação de sistema */}
+            {reminderVisible && (
+              <div
+                style={{
+                  width: "100%",
+                  marginTop: 16 * uiScale,
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "space-between",
+                  gap: 12,
+                  padding: `${10 * uiScale}px 0`,
+                  borderTop: `1px solid ${withAlpha(theme.fg, 0.16)}`,
+                  borderBottom: `1px solid ${withAlpha(theme.fg, 0.16)}`,
+                  animation: "ma-rise 400ms ease-out both",
+                }}
+              >
+                <span style={{ fontSize: 12 * uiScale, color: withAlpha(theme.fg, 0.7), lineHeight: 1.4 }}>
+                  {t.reminderBanner}
+                </span>
+                <button
+                  onClick={() => {
+                    setReminderVisible(false);
+                    setReminderDismissed(true);
+                  }}
+                  aria-label={t.reminderDismissAria}
+                  className="ma-fade-focus"
+                  style={{
+                    background: "transparent",
+                    border: "none",
+                    color: withAlpha(theme.fg, 0.5),
+                    fontSize: 14 * uiScale,
+                    cursor: "pointer",
+                    padding: 4,
+                    flexShrink: 0,
+                  }}
+                >
+                  ×
+                </button>
+              </div>
+            )}
+
+            {/* As 4 atividades do dia: 3 âncoras fixas + 1 da biblioteca de 15 dias */}
+            <div
+              style={{
+                flex: 1,
+                width: "100%",
+                display: "flex",
+                flexDirection: "column",
+                justifyContent: "center",
+                gap: 4,
+              }}
+            >
+              <div
+                style={{
+                  fontSize: 11 * uiScale,
+                  letterSpacing: "0.2em",
+                  textTransform: "uppercase",
+                  color: withAlpha(theme.fg, 0.5),
+                  textAlign: "center",
+                  marginBottom: 10 * uiScale,
+                }}
+              >
+                {t.priorityLabel}
+              </div>
+              {[
+                { key: "physical", label: anchors.physicalLabel, text: physicalText, done: physicalDone, onToggle: () => setPhysicalDone(true) },
+                { key: "mental", label: anchors.mentalLabel, text: mentalText, done: mentalDone, onToggle: () => setMentalDone(true) },
+                { key: "social", label: anchors.socialLabel, text: socialText, done: socialDone, onToggle: () => setSocialDone(true) },
+                { key: "bonus", label: `${t.bonusLabel} · ${libraryPillarLabel}`, text: libraryItem.text, done: libraryDone, onToggle: () => setLibraryDone(true) },
+              ].map((row, i) => (
+                <div
+                  key={row.key}
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "space-between",
+                    gap: 16,
+                    padding: `${14 * uiScale}px 0`,
+                    borderBottom: i < 3 ? `1px solid ${withAlpha(theme.fg, 0.12)}` : "none",
+                  }}
+                >
+                  <div style={{ textAlign: "left" }}>
+                    <div
+                      style={{
+                        fontSize: 10 * uiScale,
+                        letterSpacing: "0.18em",
+                        textTransform: "uppercase",
+                        color: withAlpha(theme.fg, 0.4),
+                        marginBottom: 6,
+                      }}
+                    >
+                      {row.label}
+                    </div>
+                    <p
+                      className="ma-serif"
+                      style={{
+                        fontSize: 15 * uiScale,
+                        lineHeight: 1.3,
+                        color: theme.fg,
+                        fontWeight: 400,
+                        margin: 0,
+                        maxWidth: 205 * uiScale,
+                      }}
+                    >
+                      {row.text}
+                    </p>
+                  </div>
+
+                  <TaskMarker
+                    done={row.done}
+                    onToggle={row.onToggle}
+                    scale={uiScale * 0.6}
+                    zen={zenMode}
+                    doneLabel={`${t.markerDoneAria} — ${row.label}`}
+                    todoLabel={`${t.markerTodoAria} — ${row.label}`}
+                    fg={theme.fg}
+                    bg={theme.bg}
+                  />
+                </div>
+              ))}
+
+              <p
+                style={{
+                  fontSize: 12 * uiScale,
+                  letterSpacing: "0.04em",
+                  color: withAlpha(theme.fg, 0.45),
+                  minHeight: 16,
+                  margin: "6px 0 0",
+                  textAlign: "center",
+                  animation: doneCount === 4 && !zenMode ? "ma-rise 500ms ease-out both" : "none",
+                }}
+              >
+                {doneCount === 4 ? t.doneCaption : ""}
+              </p>
+            </div>
+
+            <Wordmark size={26} color={theme.fg} />
+
+            {/* Revelação de novo nível */}
+            {levelUpLevel && (
+              <div
+                style={{
+                  position: "absolute",
+                  inset: 0,
+                  background: theme.bg,
+                  display: "flex",
+                  flexDirection: "column",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  textAlign: "center",
+                  padding: "0 40px",
+                  animation: "ma-rise 350ms ease-out both",
+                }}
+              >
+                <div
+                  style={{
+                    fontSize: 11 * uiScale,
+                    letterSpacing: "0.22em",
+                    textTransform: "uppercase",
+                    color: withAlpha(theme.fg, 0.45),
+                    marginBottom: 14,
+                  }}
+                >
+                  {t.levelUpEyebrow}
+                </div>
+                <p
+                  style={{
+                    fontFamily: "Inter, sans-serif",
+                    fontSize: 30 * uiScale,
+                    fontWeight: 500,
+                    color: theme.fg,
+                    margin: "0 0 22px",
+                  }}
+                >
+                  {levelUpLevel.name}
+                </p>
+                <div
+                  style={{
+                    fontSize: 10 * uiScale,
+                    letterSpacing: "0.16em",
+                    textTransform: "uppercase",
+                    color: withAlpha(theme.fg, 0.4),
+                    marginBottom: 10,
+                  }}
+                >
+                  {levelUpLevel.kind === "joke" ? t.kindJoke : levelUpLevel.kind === "pause" ? t.kindPause : t.kindQuote}
+                </div>
+                <p
+                  style={{
+                    fontSize: 16 * uiScale,
+                    lineHeight: 1.55,
+                    color: withAlpha(theme.fg, 0.85),
+                    margin: "0 0 30px",
+                    maxWidth: 260,
+                  }}
+                >
+                  {levelUpLevel.message}
+                </p>
+                <button
+                  onClick={() => setLevelUpLevel(null)}
+                  className="ma-btn ma-fade-focus"
+                  style={{
+                    padding: "14px 34px",
+                    background: theme.fg,
+                    color: theme.bg,
+                    border: "none",
+                    fontFamily: "Inter, sans-serif",
+                    fontSize: 12 * uiScale,
+                    fontWeight: 500,
+                    letterSpacing: "0.18em",
+                    textTransform: "uppercase",
+                    cursor: "pointer",
+                  }}
+                >
+                  {t.levelUpCta}
+                </button>
+              </div>
+            )}
+
+            {/* Convite de progressão — fim de um ciclo de 15 dias, escolha livre */}
+            {escalationVisible && (
+              <div
+                style={{
+                  position: "absolute",
+                  inset: 0,
+                  background: theme.bg,
+                  display: "flex",
+                  flexDirection: "column",
+                  justifyContent: "center",
+                  padding: "0 34px",
+                  animation: "ma-rise 350ms ease-out both",
+                }}
+              >
+                <div
+                  style={{
+                    fontSize: 11 * uiScale,
+                    letterSpacing: "0.22em",
+                    textTransform: "uppercase",
+                    color: withAlpha(theme.fg, 0.45),
+                    marginBottom: 10,
+                    textAlign: "center",
+                  }}
+                >
+                  {t.cycleEyebrow}
+                </div>
+                <p
+                  style={{
+                    fontSize: 13 * uiScale,
+                    color: withAlpha(theme.fg, 0.6),
+                    textAlign: "center",
+                    lineHeight: 1.5,
+                    margin: "0 0 26px",
+                  }}
+                >
+                  {t.cycleIntro}
+                </p>
+
+                {[
+                  {
+                    key: "physical",
+                    question: t.waterQuestion(waterGlasses),
+                    choice: physicalChoice,
+                    onYes: () => setPhysicalChoice(true),
+                    onKeep: () => setPhysicalChoice(false),
+                  },
+                  {
+                    key: "mental",
+                    question: t.readingQuestion(readingMinutes),
+                    choice: mentalChoice,
+                    onYes: () => setMentalChoice(true),
+                    onKeep: () => setMentalChoice(false),
+                  },
+                ].map((row) => (
+                  <div
+                    key={row.key}
+                    style={{
+                      padding: `${14 * uiScale}px 0`,
+                      borderBottom: `1px solid ${withAlpha(theme.fg, 0.14)}`,
+                    }}
+                  >
+                    <p
+                      className="ma-serif"
+                      style={{ fontSize: 15 * uiScale, lineHeight: 1.5, color: theme.fg, margin: "0 0 12px" }}
+                    >
+                      {row.question}
+                    </p>
+                    {row.choice === null ? (
+                      <div style={{ display: "flex", gap: 10 }}>
+                        <button
+                          onClick={row.onYes}
+                          className="ma-btn ma-fade-focus"
+                          style={{
+                            padding: "9px 16px",
+                            background: theme.fg,
+                            color: theme.bg,
+                            border: "none",
+                            fontFamily: "Inter, sans-serif",
+                            fontSize: 11 * uiScale,
+                            letterSpacing: "0.08em",
+                            textTransform: "uppercase",
+                            cursor: "pointer",
+                          }}
+                        >
+                          {t.escalationYes}
+                        </button>
+                        <button
+                          onClick={row.onKeep}
+                          className="ma-btn ma-fade-focus"
+                          style={{
+                            padding: "9px 16px",
+                            background: "transparent",
+                            color: withAlpha(theme.fg, 0.6),
+                            border: `1px solid ${withAlpha(theme.fg, 0.3)}`,
+                            fontFamily: "Inter, sans-serif",
+                            fontSize: 11 * uiScale,
+                            letterSpacing: "0.08em",
+                            textTransform: "uppercase",
+                            cursor: "pointer",
+                          }}
+                        >
+                          {t.escalationKeep}
+                        </button>
+                      </div>
+                    ) : (
+                      <p style={{ fontSize: 12 * uiScale, color: withAlpha(theme.fg, 0.45), margin: 0 }}>✓</p>
+                    )}
+                  </div>
+                ))}
+
+                <button
+                  onClick={() => {
+                    if (physicalChoice) setWaterGlasses((n) => n + 1);
+                    if (mentalChoice) setReadingMinutes((n) => n + 3);
+                    setEscalationVisible(false);
+                  }}
+                  disabled={physicalChoice === null || mentalChoice === null}
+                  className="ma-btn ma-fade-focus"
+                  style={{
+                    marginTop: 24,
+                    padding: "15px 0",
+                    background: "transparent",
+                    color: theme.fg,
+                    border: `1px solid ${withAlpha(theme.fg, physicalChoice === null || mentalChoice === null ? 0.2 : 0.5)}`,
+                    fontFamily: "Inter, sans-serif",
+                    fontSize: 12 * uiScale,
+                    fontWeight: 500,
+                    letterSpacing: "0.18em",
+                    textTransform: "uppercase",
+                    cursor: physicalChoice === null || mentalChoice === null ? "not-allowed" : "pointer",
+                    opacity: physicalChoice === null || mentalChoice === null ? 0.4 : 1,
+                  }}
+                >
+                  {t.escalationFinish}
+                </button>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* ---------------- GRÁFICOS ---------------- */}
+        {screen === "stats" && (
+          <div
+            style={{
+              position: "absolute",
+              inset: 0,
+              background: theme.bg,
+              display: "flex",
+              flexDirection: "column",
+              opacity: statsOpacity,
+              transition: "opacity 450ms ease-in-out, background 300ms ease",
+            }}
+          >
+            <div style={{ padding: `${28 * uiScale}px 32px 0` }}>
+              <button
+                onClick={() => setScreen("dashboard")}
+                className="ma-fade-focus"
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 6,
+                  background: "transparent",
+                  border: "none",
+                  color: withAlpha(theme.fg, 0.6),
+                  fontFamily: "Inter, sans-serif",
+                  fontSize: 11 * uiScale,
+                  letterSpacing: "0.18em",
+                  textTransform: "uppercase",
+                  cursor: "pointer",
+                  padding: `${8 * uiScale}px 0`,
+                }}
+              >
+                {t.statsBack}
+              </button>
+            </div>
+
+            <div style={{ flex: 1, overflowY: "auto", padding: `${20 * uiScale}px 32px ${40 * uiScale}px` }}>
+              <div
+                style={{
+                  display: "flex",
+                  justifyContent: "space-around",
+                  flexWrap: "wrap",
+                  gap: 28 * uiScale,
+                  marginBottom: 34 * uiScale,
+                }}
+              >
+                <Donut
+                  percent={weekPercent}
+                  count={t.statsCount(weekTotal, weeklySeries.length * 4)}
+                  label={t.statsWeekTitle}
+                  fg={theme.fg}
+                  bg={theme.bg}
+                  scale={uiScale}
+                />
+                <Donut
+                  percent={monthPercent}
+                  count={t.statsCount(monthTotal, monthlySeries.length * 4)}
+                  label={t.statsMonthTitle}
+                  fg={theme.fg}
+                  bg={theme.bg}
+                  scale={uiScale}
+                />
+              </div>
+
+              <div style={{ height: 1, background: withAlpha(theme.fg, 0.12) }} />
+
+              {/* Nível atual */}
+              <div style={{ padding: `${26 * uiScale}px 0` }}>
+                <div
+                  style={{
+                    fontSize: 11 * uiScale,
+                    letterSpacing: "0.18em",
+                    textTransform: "uppercase",
+                    color: withAlpha(theme.fg, 0.4),
+                    marginBottom: 6,
+                  }}
+                >
+                  {t.levelEyebrow}
+                </div>
+                <p
+                  style={{
+                    fontFamily: "Inter, sans-serif",
+                    fontSize: 24 * uiScale,
+                    fontWeight: 500,
+                    color: theme.fg,
+                    margin: "0 0 14px",
+                  }}
+                >
+                  {currentLevel.name}
+                </p>
+                <div style={{ height: 1, background: withAlpha(theme.fg, 0.14), position: "relative", marginBottom: 8 }}>
+                  <div
+                    style={{
+                      position: "absolute",
+                      left: 0,
+                      top: 0,
+                      height: 1,
+                      width: nextLevel
+                        ? `${Math.round(((monthTotal - currentLevel.threshold) / (nextLevel.threshold - currentLevel.threshold)) * 100)}%`
+                        : "100%",
+                      background: theme.fg,
+                      transition: "width 450ms ease",
+                    }}
+                  />
+                </div>
+                <p style={{ fontSize: 11 * uiScale, color: withAlpha(theme.fg, 0.45), margin: 0 }}>
+                  {nextLevel ? t.levelProgress(nextLevel.threshold - monthTotal) : t.levelMaxed}
+                </p>
+              </div>
+
+              <div style={{ height: 1, background: withAlpha(theme.fg, 0.12) }} />
+
+              {/* Mensagens desbloqueadas */}
+              <div style={{ padding: `${26 * uiScale}px 0 4px` }}>
+                <div
+                  style={{
+                    fontSize: 11 * uiScale,
+                    letterSpacing: "0.18em",
+                    textTransform: "uppercase",
+                    color: withAlpha(theme.fg, 0.4),
+                    marginBottom: 6,
+                  }}
+                >
+                  {t.unlockedEyebrow}
+                </div>
+                {unlockedLevels.length === 0 ? (
+                  <p style={{ fontSize: 13 * uiScale, color: withAlpha(theme.fg, 0.45), margin: "12px 0 0" }}>
+                    {t.unlockedEmpty}
+                  </p>
+                ) : (
+                  unlockedLevels
+                    .slice()
+                    .reverse()
+                    .map((lvl) => (
+                      <div
+                        key={lvl.name}
+                        style={{
+                          padding: `${14 * uiScale}px 0`,
+                          borderBottom: `1px solid ${withAlpha(theme.fg, 0.1)}`,
+                        }}
+                      >
+                        <div style={{ display: "flex", alignItems: "baseline", gap: 8, marginBottom: 6 }}>
+                          <span
+                            style={{
+                              fontFamily: "Inter, sans-serif",
+                              fontSize: 13 * uiScale,
+                              fontWeight: 500,
+                              color: theme.fg,
+                            }}
+                          >
+                            {lvl.name}
+                          </span>
+                          <span
+                            style={{
+                              fontSize: 10 * uiScale,
+                              letterSpacing: "0.12em",
+                              textTransform: "uppercase",
+                              color: withAlpha(theme.fg, 0.4),
+                            }}
+                          >
+                            {lvl.kind === "joke" ? t.kindJoke : lvl.kind === "pause" ? t.kindPause : t.kindQuote}
+                          </span>
+                        </div>
+                        <p style={{ fontSize: 13 * uiScale, lineHeight: 1.5, color: withAlpha(theme.fg, 0.7), margin: 0 }}>
+                          {lvl.message}
+                        </p>
+                      </div>
+                    ))
+                )}
+              </div>
+
+              <div style={{ display: "flex", justifyContent: "center", paddingTop: 26 * uiScale }}>
+                <Wordmark size={18} color={theme.fg} />
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* ---------------- PERFIL ---------------- */}
+        {screen === "profile" && (
+          <div
+            style={{
+              position: "absolute",
+              inset: 0,
+              background: theme.bg,
+              display: "flex",
+              flexDirection: "column",
+              opacity: profileOpacity,
+              transition: "opacity 450ms ease-in-out, background 300ms ease",
+            }}
+          >
+            {/* Cabeçalho fixo: voltar + modo noturno + idioma */}
+            <div
+              style={{
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "space-between",
+                padding: `${28 * uiScale}px 32px 0`,
+              }}
+            >
+              <button
+                onClick={() => setScreen("dashboard")}
+                className="ma-fade-focus"
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 6,
+                  background: "transparent",
+                  border: "none",
+                  color: withAlpha(theme.fg, 0.6),
+                  fontFamily: "Inter, sans-serif",
+                  fontSize: 11 * uiScale,
+                  letterSpacing: "0.18em",
+                  textTransform: "uppercase",
+                  cursor: "pointer",
+                  padding: `${8 * uiScale}px 0`,
+                }}
+              >
+                {t.back}
+              </button>
+
+              <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                <NightToggle
+                  night={nightMode}
+                  onToggle={() => setNightMode(!nightMode)}
+                  scale={uiScale}
+                  fg={theme.fg}
+                  bg={theme.bg}
+                  label={nightMode ? t.nightAria : t.dayAria}
+                />
+                <div style={{ width: 96 * uiScale }}>
+                  <Segmented
+                    scale={uiScale * 0.85}
+                    value={language}
+                    onChange={setLanguage}
+                    fg={theme.fg}
+                    options={[
+                      { value: "pt", label: "PT" },
+                      { value: "en", label: "EN" },
+                    ]}
+                  />
+                </div>
+              </div>
+            </div>
+
+            {/* Conteúdo rolável */}
+            <div
+              style={{
+                flex: 1,
+                overflowY: "auto",
+                padding: `${10 * uiScale}px 32px ${40 * uiScale}px`,
+              }}
+            >
+              {/* 1. Cabeçalho do usuário */}
+              <div style={{ marginBottom: 32 * uiScale }}>
+                <p
+                  className="ma-serif"
+                  style={{
+                    fontSize: 32 * uiScale,
+                    lineHeight: 1.15,
+                    color: theme.fg,
+                    fontWeight: 400,
+                    margin: "0 0 10px",
+                  }}
+                >
+                  {displayName}
+                </p>
+                <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                  <span
+                    style={{
+                      width: 5,
+                      height: 5,
+                      borderRadius: "9999px",
+                      background: theme.fg,
+                      display: "inline-block",
+                    }}
+                  />
+                  <span
+                    style={{
+                      fontSize: 11 * uiScale,
+                      letterSpacing: "0.14em",
+                      textTransform: "uppercase",
+                      color: withAlpha(theme.fg, 0.5),
+                    }}
+                  >
+                    {t.daysInRow(streakDays)}
+                  </span>
+                </div>
+              </div>
+
+              <div style={{ height: 1, background: withAlpha(theme.fg, 0.12) }} />
+
+              {/* Seus rituais — fixos, sem escolha; a 4ª muda todo dia sozinha */}
+              <div style={{ padding: `${26 * uiScale}px 0` }}>
+                <div
+                  style={{
+                    fontSize: 11 * uiScale,
+                    letterSpacing: "0.18em",
+                    textTransform: "uppercase",
+                    color: withAlpha(theme.fg, 0.4),
+                    marginBottom: 6,
+                  }}
+                >
+                  {t.ritualsEyebrow}
+                </div>
+                <p
+                  className="ma-serif"
+                  style={{
+                    fontSize: 17 * uiScale,
+                    color: theme.fg,
+                    margin: "0 0 4px",
+                    fontWeight: 400,
+                    lineHeight: 1.35,
+                  }}
+                >
+                  {t.ritualsTitle}
+                </p>
+                <p style={{ fontSize: 12 * uiScale, color: withAlpha(theme.fg, 0.42), lineHeight: 1.5, margin: "0 0 16px" }}>
+                  {t.ritualsNote}
+                </p>
+
+                {[
+                  { label: anchors.physicalLabel, text: physicalText },
+                  { label: anchors.mentalLabel, text: mentalText },
+                  { label: anchors.socialLabel, text: socialText },
+                  { label: `${t.bonusLabel} · ${libraryPillarLabel}`, text: libraryItem.text },
+                ].map((row, i, arr) => (
+                  <div
+                    key={row.label}
+                    style={{
+                      padding: `${11 * uiScale}px 0`,
+                      borderBottom: i < arr.length - 1 ? `1px solid ${withAlpha(theme.fg, 0.1)}` : "none",
+                    }}
+                  >
+                    <div
+                      style={{
+                        fontSize: 10 * uiScale,
+                        letterSpacing: "0.12em",
+                        textTransform: "uppercase",
+                        color: withAlpha(theme.fg, 0.42),
+                        marginBottom: 4,
+                      }}
+                    >
+                      {row.label}
+                    </div>
+                    <p className="ma-serif" style={{ fontSize: 14 * uiScale, color: theme.fg, margin: 0, lineHeight: 1.3 }}>
+                      {row.text}
+                    </p>
+                  </div>
+                ))}
+              </div>
+
+              <div style={{ height: 1, background: withAlpha(theme.fg, 0.12) }} />
+
+              {/* Lembretes diários — aviso dentro do app */}
+              <div style={{ padding: `${26 * uiScale}px 0` }}>
+                <div
+                  style={{
+                    fontSize: 11 * uiScale,
+                    letterSpacing: "0.18em",
+                    textTransform: "uppercase",
+                    color: withAlpha(theme.fg, 0.4),
+                    marginBottom: 6,
+                  }}
+                >
+                  {t.reminderEyebrow}
+                </div>
+                <div
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "space-between",
+                    marginTop: 14,
+                  }}
+                >
+                  <p className="ma-serif" style={{ fontSize: 19 * uiScale, color: theme.fg, margin: 0 }}>
+                    {t.reminderTitle}
+                  </p>
+                  <Switch
+                    checked={remindersOn}
+                    onChange={(v) => {
+                      setRemindersOn(v);
+                      if (v) setReminderDismissed(false);
+                    }}
+                    scale={uiScale}
+                    label={t.reminderTitle}
+                    fg={theme.fg}
+                    bg={theme.bg}
+                  />
+                </div>
+                <p
+                  style={{
+                    fontSize: 12 * uiScale,
+                    color: withAlpha(theme.fg, 0.42),
+                    lineHeight: 1.5,
+                    margin: "10px 0 6px",
+                    maxWidth: 280,
+                  }}
+                >
+                  {t.reminderDesc}
+                </p>
+                <div
+                  style={{
+                    fontSize: 10 * uiScale,
+                    letterSpacing: "0.14em",
+                    textTransform: "uppercase",
+                    color: withAlpha(theme.fg, 0.35),
+                    marginBottom: 10,
+                  }}
+                >
+                  {t.reminderTimeLabel}
+                </div>
+                <div
+                  style={{
+                    opacity: remindersOn ? 1 : 0.35,
+                    pointerEvents: remindersOn ? "auto" : "none",
+                    transition: "opacity 200ms ease",
+                  }}
+                >
+                  <Segmented
+                    scale={uiScale}
+                    fg={theme.fg}
+                    value={reminderTime}
+                    onChange={setReminderTime}
+                    options={[
+                      { value: "manha", label: t.morning },
+                      { value: "tarde", label: t.afternoon },
+                      { value: "noite", label: t.night },
+                    ]}
+                  />
+                </div>
+              </div>
+
+              <div style={{ height: 1, background: withAlpha(theme.fg, 0.12) }} />
+
+              {/* 2. Pilar 1 — Alocação de energia (cronotipo) */}
+              <div style={{ padding: `${26 * uiScale}px 0` }}>
+                <div
+                  style={{
+                    fontSize: 11 * uiScale,
+                    letterSpacing: "0.18em",
+                    textTransform: "uppercase",
+                    color: withAlpha(theme.fg, 0.4),
+                    marginBottom: 6,
+                  }}
+                >
+                  {t.pillar1Eyebrow}
+                </div>
+                <p
+                  className="ma-serif"
+                  style={{
+                    fontSize: 19 * uiScale,
+                    color: theme.fg,
+                    margin: "0 0 16px",
+                    fontWeight: 400,
+                  }}
+                >
+                  {t.pillar1Title}
+                </p>
+                <Segmented
+                  scale={uiScale}
+                  fg={theme.fg}
+                  value={chronotype}
+                  onChange={setChronotype}
+                  options={[
+                    { value: "matutino", label: t.morning },
+                    { value: "vespertino", label: t.afternoon },
+                    { value: "noturno", label: t.night },
+                  ]}
+                />
+              </div>
+
+              <div style={{ height: 1, background: withAlpha(theme.fg, 0.12) }} />
+
+              {/* 3. Pilar 2 — fácil de usar (letras grandes) */}
+              <div style={{ padding: `${26 * uiScale}px 0` }}>
+                <div
+                  style={{
+                    fontSize: 11 * uiScale,
+                    letterSpacing: "0.18em",
+                    textTransform: "uppercase",
+                    color: withAlpha(theme.fg, 0.4),
+                    marginBottom: 6,
+                  }}
+                >
+                  {t.pillar2Eyebrow}
+                </div>
+                <div
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "space-between",
+                    marginTop: 14,
+                  }}
+                >
+                  <p className="ma-serif" style={{ fontSize: 19 * uiScale, color: theme.fg, margin: 0 }}>
+                    {t.seniorTitle}
+                  </p>
+                  <Switch
+                    checked={seniorMode}
+                    onChange={setSeniorMode}
+                    scale={uiScale}
+                    label={t.seniorTitle}
+                    fg={theme.fg}
+                    bg={theme.bg}
+                  />
+                </div>
+                <p
+                  style={{
+                    fontSize: 12 * uiScale,
+                    color: withAlpha(theme.fg, 0.42),
+                    lineHeight: 1.5,
+                    margin: "10px 0 0",
+                    maxWidth: 280,
+                  }}
+                >
+                  {t.seniorDesc}
+                </p>
+              </div>
+
+              <div style={{ height: 1, background: withAlpha(theme.fg, 0.12) }} />
+
+              {/* 4. Pilar 3 — sem culpa nos dias corridos (dias de folga) */}
+              <div style={{ padding: `${26 * uiScale}px 0` }}>
+                <div
+                  style={{
+                    fontSize: 11 * uiScale,
+                    letterSpacing: "0.18em",
+                    textTransform: "uppercase",
+                    color: withAlpha(theme.fg, 0.4),
+                    marginBottom: 6,
+                  }}
+                >
+                  {t.pillar3Eyebrow}
+                </div>
+                <p
+                  className="ma-serif"
+                  style={{
+                    fontSize: 19 * uiScale,
+                    color: theme.fg,
+                    margin: "0 0 16px",
+                    fontWeight: 400,
+                  }}
+                >
+                  {t.graceTitle}
+                </p>
+                <Segmented
+                  scale={uiScale}
+                  fg={theme.fg}
+                  value={graceDays}
+                  onChange={setGraceDays}
+                  options={[
+                    { value: 1, label: t.day1 },
+                    { value: 2, label: t.day2 },
+                    { value: 3, label: t.day3 },
+                  ]}
+                />
+                <p
+                  style={{
+                    fontSize: 12 * uiScale,
+                    color: withAlpha(theme.fg, 0.42),
+                    lineHeight: 1.5,
+                    margin: "12px 0 0",
+                    maxWidth: 280,
+                  }}
+                >
+                  {t.graceDesc}
+                </p>
+              </div>
+
+              <div style={{ height: 1, background: withAlpha(theme.fg, 0.12) }} />
+
+              {/* 5. Menos distração na tela (modo tranquilo) */}
+              <div style={{ padding: `${26 * uiScale}px 0` }}>
+                <div
+                  style={{
+                    fontSize: 11 * uiScale,
+                    letterSpacing: "0.18em",
+                    textTransform: "uppercase",
+                    color: withAlpha(theme.fg, 0.4),
+                    marginBottom: 6,
+                  }}
+                >
+                  {t.pillar4Eyebrow}
+                </div>
+                <div
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "space-between",
+                    marginTop: 14,
+                  }}
+                >
+                  <p className="ma-serif" style={{ fontSize: 19 * uiScale, color: theme.fg, margin: 0 }}>
+                    {t.zenTitle}
+                  </p>
+                  <Switch
+                    checked={zenMode}
+                    onChange={setZenMode}
+                    scale={uiScale}
+                    label={t.zenTitle}
+                    fg={theme.fg}
+                    bg={theme.bg}
+                  />
+                </div>
+                <p
+                  style={{
+                    fontSize: 12 * uiScale,
+                    color: withAlpha(theme.fg, 0.42),
+                    lineHeight: 1.5,
+                    margin: "10px 0 0",
+                    maxWidth: 280,
+                  }}
+                >
+                  {t.zenDesc}
+                </p>
+              </div>
+
+              <div style={{ height: 1, background: withAlpha(theme.fg, 0.12) }} />
+
+              {/* 6. Ligar com outros apps de saúde */}
+              <div style={{ padding: `${26 * uiScale}px 0 4px` }}>
+                <div
+                  style={{
+                    fontSize: 11 * uiScale,
+                    letterSpacing: "0.18em",
+                    textTransform: "uppercase",
+                    color: withAlpha(theme.fg, 0.4),
+                    marginBottom: 6,
+                  }}
+                >
+                  {t.pillar5Eyebrow}
+                </div>
+                <button
+                  onClick={connectHealth}
+                  disabled={healthStatus === "connected"}
+                  className="ma-fade-focus"
+                  style={{
+                    width: "100%",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "space-between",
+                    background: "transparent",
+                    border: "none",
+                    padding: `${14 * uiScale}px 0`,
+                    cursor: healthStatus === "connected" ? "default" : "pointer",
+                  }}
+                >
+                  <p className="ma-serif" style={{ fontSize: 19 * uiScale, color: theme.fg, margin: 0 }}>
+                    {t.healthTitle}
+                  </p>
+                  <span style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                    <span
+                      style={{
+                        width: 6,
+                        height: 6,
+                        borderRadius: "9999px",
+                        background:
+                          healthStatus === "connected"
+                            ? theme.fg
+                            : healthStatus === "syncing"
+                            ? withAlpha(theme.fg, 0.85)
+                            : withAlpha(theme.fg, 0.25),
+                        animation:
+                          healthStatus === "syncing" && !zenMode ? "ma-breathe 900ms ease-in-out infinite" : "none",
+                      }}
+                    />
+                    <span
+                      style={{
+                        fontSize: 11 * uiScale,
+                        letterSpacing: "0.12em",
+                        textTransform: "uppercase",
+                        color: withAlpha(theme.fg, 0.5),
+                      }}
+                    >
+                      {healthStatus === "connected" ? t.connected : healthStatus === "syncing" ? t.syncing : t.connect}
+                    </span>
+                  </span>
+                </button>
+              </div>
+
+              <div style={{ display: "flex", justifyContent: "center", paddingTop: 30 * uiScale }}>
+                <Wordmark size={18} color={theme.fg} />
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Overlay de transição (acender / apagar as luzes) */}
+        <div
+          style={{
+            position: "absolute",
+            inset: 0,
+            background: "#000000",
+            opacity: overlayOpacity,
+            transition: `opacity ${overlayMs}ms cubic-bezier(0.4,0,0.2,1)`,
+            pointerEvents: overlayOpacity > 0.02 ? "auto" : "none",
+            zIndex: 50,
+          }}
+        />
+      </div>
+    </div>
+  );
+}
+
+
+const root = ReactDOM.createRoot(document.getElementById("root"));
+root.render(<MAApp />);
+</script>
+</body>
+</html>
